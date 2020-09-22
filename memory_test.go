@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/micro/go-micro/v3/registry"
+	"github.com/unistack-org/micro/v3/registry"
 )
 
 var (
@@ -247,6 +247,7 @@ func TestMemoryRegistryTTLConcurrent(t *testing.T) {
 
 func TestMemoryWildcard(t *testing.T) {
 	m := NewRegistry()
+
 	testSrv := &registry.Service{Name: "foo", Version: "1.0.0"}
 
 	if err := m.Register(testSrv, registry.RegisterDomain("one")); err != nil {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/micro/go-micro/v3/logger"
-	"github.com/micro/go-micro/v3/registry"
+	"github.com/unistack-org/micro/v3/logger"
+	"github.com/unistack-org/micro/v3/registry"
 )
 
 var (
@@ -81,7 +81,7 @@ func (m *Registry) ttlPrune() {
 					for version, record := range versions {
 						for id, n := range record.Nodes {
 							if n.TTL != 0 && time.Since(n.LastSeen) > n.TTL {
-								if logger.V(logger.DebugLevel, logger.DefaultLogger) {
+								if logger.V(logger.DebugLevel) {
 									logger.Debugf("Registry TTL expired for node %s of service %s", n.Id, service)
 								}
 								delete(m.records[domain][service][version].Nodes, id)
@@ -192,7 +192,7 @@ func (m *Registry) Register(s *registry.Service, opts ...registry.RegisterOption
 
 	if _, ok := srvs[s.Name][s.Version]; !ok {
 		srvs[s.Name][s.Version] = r
-		if logger.V(logger.DebugLevel, logger.DefaultLogger) {
+		if logger.V(logger.DebugLevel) {
 			logger.Debugf("Registry added new service: %s, version: %s", s.Name, s.Version)
 		}
 		m.records[options.Domain] = srvs
@@ -232,14 +232,14 @@ func (m *Registry) Register(s *registry.Service, opts ...registry.RegisterOption
 	}
 
 	if addedNodes {
-		if logger.V(logger.DebugLevel, logger.DefaultLogger) {
+		if logger.V(logger.DebugLevel) {
 			logger.Debugf("Registry added new node to service: %s, version: %s", s.Name, s.Version)
 		}
 		go m.sendEvent(&registry.Result{Action: "update", Service: s})
 	} else {
 		// refresh TTL and timestamp
 		for _, n := range s.Nodes {
-			if logger.V(logger.DebugLevel, logger.DefaultLogger) {
+			if logger.V(logger.DebugLevel) {
 				logger.Debugf("Updated registration for service: %s, version: %s", s.Name, s.Version)
 			}
 			srvs[s.Name][s.Version].Nodes[n.Id].TTL = options.TTL
@@ -291,7 +291,7 @@ func (m *Registry) Deregister(s *registry.Service, opts ...registry.DeregisterOp
 	// deregister all of the service nodes from this version
 	for _, n := range s.Nodes {
 		if _, ok := version.Nodes[n.Id]; ok {
-			if logger.V(logger.DebugLevel, logger.DefaultLogger) {
+			if logger.V(logger.DebugLevel) {
 				logger.Debugf("Registry removed node from service: %s, version: %s", s.Name, s.Version)
 			}
 			delete(version.Nodes, n.Id)
@@ -312,7 +312,7 @@ func (m *Registry) Deregister(s *registry.Service, opts ...registry.DeregisterOp
 		delete(m.records[options.Domain], s.Name)
 		go m.sendEvent(&registry.Result{Action: "delete", Service: s})
 
-		if logger.V(logger.DebugLevel, logger.DefaultLogger) {
+		if logger.V(logger.DebugLevel) {
 			logger.Debugf("Registry removed service: %s", s.Name)
 		}
 		return nil
@@ -321,7 +321,7 @@ func (m *Registry) Deregister(s *registry.Service, opts ...registry.DeregisterOp
 	// there are other versions of the service running, so only remove this version of it
 	delete(m.records[options.Domain][s.Name], s.Version)
 	go m.sendEvent(&registry.Result{Action: "delete", Service: s})
-	if logger.V(logger.DebugLevel, logger.DefaultLogger) {
+	if logger.V(logger.DebugLevel) {
 		logger.Debugf("Registry removed service: %s, version: %s", s.Name, s.Version)
 	}
 
