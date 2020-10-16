@@ -30,7 +30,7 @@ type record struct {
 	Endpoints []*registry.Endpoint
 }
 
-type Registry struct {
+type memory struct {
 	options registry.Options
 
 	sync.RWMutex
@@ -44,22 +44,9 @@ type services map[string]map[string]*record
 
 // NewRegistry returns an initialized in-memory registry
 func NewRegistry(opts ...registry.Option) registry.Registry {
-	options := registry.Options{
-		Context: context.Background(),
-	}
-	for _, o := range opts {
-		o(&options)
-	}
-
-	// records can be passed for testing purposes
-	records := getServiceRecords(options.Context)
-	if records == nil {
-		records = make(services)
-	}
-
-	reg := &Registry{
-		options:  options,
-		records:  map[string]services{registry.DefaultDomain: records},
+	reg := &memory{
+		options:  registry.NewOptions(opts...),
+		records:  make(map[string]services),
 		watchers: make(map[string]*Watcher),
 	}
 
@@ -68,7 +55,7 @@ func NewRegistry(opts ...registry.Option) registry.Registry {
 	return reg
 }
 
-func (m *Registry) ttlPrune() {
+func (m *memory) ttlPrune() {
 	prune := time.NewTicker(ttlPruneTime)
 	defer prune.Stop()
 
@@ -95,7 +82,7 @@ func (m *Registry) ttlPrune() {
 	}
 }
 
-func (m *Registry) sendEvent(r *registry.Result) {
+func (m *memory) sendEvent(r *registry.Result) {
 	m.RLock()
 	watchers := make([]*Watcher, 0, len(m.watchers))
 	for _, w := range m.watchers {
@@ -118,7 +105,15 @@ func (m *Registry) sendEvent(r *registry.Result) {
 	}
 }
 
-func (m *Registry) Init(opts ...registry.Option) error {
+func (m *memory) Connect(ctx context.Context) error {
+	return nil
+}
+
+func (m *memory) Disconnect(ctx context.Context) error {
+	return nil
+}
+
+func (m *memory) Init(opts ...registry.Option) error {
 	for _, o := range opts {
 		o(&m.options)
 	}
@@ -133,32 +128,16 @@ func (m *Registry) Init(opts ...registry.Option) error {
 		srvs = make(services)
 	}
 
-	// loop through the services and if it doesn't yet exist, add it to the slice. This is used for
-	// testing purposes.
-	for name, record := range getServiceRecords(m.options.Context) {
-		if _, ok := srvs[name]; !ok {
-			srvs[name] = record
-			continue
-		}
-
-		for version, r := range record {
-			if _, ok := srvs[name][version]; !ok {
-				srvs[name][version] = r
-				continue
-			}
-		}
-	}
-
 	// set the services in the registry
 	m.records[registry.DefaultDomain] = srvs
 	return nil
 }
 
-func (m *Registry) Options() registry.Options {
+func (m *memory) Options() registry.Options {
 	return m.options
 }
 
-func (m *Registry) Register(s *registry.Service, opts ...registry.RegisterOption) error {
+func (m *memory) Register(s *registry.Service, opts ...registry.RegisterOption) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -251,7 +230,7 @@ func (m *Registry) Register(s *registry.Service, opts ...registry.RegisterOption
 	return nil
 }
 
-func (m *Registry) Deregister(s *registry.Service, opts ...registry.DeregisterOption) error {
+func (m *memory) Deregister(s *registry.Service, opts ...registry.DeregisterOption) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -328,7 +307,7 @@ func (m *Registry) Deregister(s *registry.Service, opts ...registry.DeregisterOp
 	return nil
 }
 
-func (m *Registry) GetService(name string, opts ...registry.GetOption) ([]*registry.Service, error) {
+func (m *memory) GetService(name string, opts ...registry.GetOption) ([]*registry.Service, error) {
 	// parse the options, fallback to the default domain
 	var options registry.GetOptions
 	for _, o := range opts {
@@ -390,7 +369,7 @@ func (m *Registry) GetService(name string, opts ...registry.GetOption) ([]*regis
 	return result, nil
 }
 
-func (m *Registry) ListServices(opts ...registry.ListOption) ([]*registry.Service, error) {
+func (m *memory) ListServices(opts ...registry.ListOption) ([]*registry.Service, error) {
 	// parse the options, fallback to the default domain
 	var options registry.ListOptions
 	for _, o := range opts {
@@ -440,7 +419,7 @@ func (m *Registry) ListServices(opts ...registry.ListOption) ([]*registry.Servic
 	return result, nil
 }
 
-func (m *Registry) Watch(opts ...registry.WatchOption) (registry.Watcher, error) {
+func (m *memory) Watch(opts ...registry.WatchOption) (registry.Watcher, error) {
 	// parse the options, fallback to the default domain
 	var wo registry.WatchOptions
 	for _, o := range opts {
@@ -465,6 +444,6 @@ func (m *Registry) Watch(opts ...registry.WatchOption) (registry.Watcher, error)
 	return w, nil
 }
 
-func (m *Registry) String() string {
+func (m *memory) String() string {
 	return "memory"
 }
