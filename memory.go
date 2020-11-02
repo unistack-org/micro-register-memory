@@ -137,7 +137,7 @@ func (m *memory) Options() registry.Options {
 	return m.options
 }
 
-func (m *memory) Register(s *registry.Service, opts ...registry.RegisterOption) error {
+func (m *memory) Register(ctx context.Context, s *registry.Service, opts ...registry.RegisterOption) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -230,7 +230,7 @@ func (m *memory) Register(s *registry.Service, opts ...registry.RegisterOption) 
 	return nil
 }
 
-func (m *memory) Deregister(s *registry.Service, opts ...registry.DeregisterOption) error {
+func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...registry.DeregisterOption) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -307,7 +307,7 @@ func (m *memory) Deregister(s *registry.Service, opts ...registry.DeregisterOpti
 	return nil
 }
 
-func (m *memory) GetService(name string, opts ...registry.GetOption) ([]*registry.Service, error) {
+func (m *memory) GetService(ctx context.Context, name string, opts ...registry.GetOption) ([]*registry.Service, error) {
 	// parse the options, fallback to the default domain
 	var options registry.GetOptions
 	for _, o := range opts {
@@ -326,7 +326,7 @@ func (m *memory) GetService(name string, opts ...registry.GetOption) ([]*registr
 		var services []*registry.Service
 
 		for domain := range recs {
-			srvs, err := m.GetService(name, append(opts, registry.GetDomain(domain))...)
+			srvs, err := m.GetService(ctx, name, append(opts, registry.GetDomain(domain))...)
 			if err == registry.ErrNotFound {
 				continue
 			} else if err != nil {
@@ -369,7 +369,7 @@ func (m *memory) GetService(name string, opts ...registry.GetOption) ([]*registr
 	return result, nil
 }
 
-func (m *memory) ListServices(opts ...registry.ListOption) ([]*registry.Service, error) {
+func (m *memory) ListServices(ctx context.Context, opts ...registry.ListOption) ([]*registry.Service, error) {
 	// parse the options, fallback to the default domain
 	var options registry.ListOptions
 	for _, o := range opts {
@@ -388,7 +388,7 @@ func (m *memory) ListServices(opts ...registry.ListOption) ([]*registry.Service,
 		var services []*registry.Service
 
 		for domain := range recs {
-			srvs, err := m.ListServices(append(opts, registry.ListDomain(domain))...)
+			srvs, err := m.ListServices(ctx, append(opts, registry.ListDomain(domain))...)
 			if err != nil {
 				return nil, err
 			}
@@ -419,7 +419,7 @@ func (m *memory) ListServices(opts ...registry.ListOption) ([]*registry.Service,
 	return result, nil
 }
 
-func (m *memory) Watch(opts ...registry.WatchOption) (registry.Watcher, error) {
+func (m *memory) Watch(ctx context.Context, opts ...registry.WatchOption) (registry.Watcher, error) {
 	// parse the options, fallback to the default domain
 	var wo registry.WatchOptions
 	for _, o := range opts {
