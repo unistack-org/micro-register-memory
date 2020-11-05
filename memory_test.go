@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -77,10 +78,11 @@ var (
 )
 
 func TestMemoryRegistry(t *testing.T) {
+	ctx := context.TODO()
 	m := NewRegistry()
 
 	fn := func(k string, v []*registry.Service) {
-		services, err := m.GetService(k)
+		services, err := m.GetService(ctx, k)
 		if err != nil {
 			t.Errorf("Unexpected error getting service %s: %v", k, err)
 		}
@@ -107,12 +109,12 @@ func TestMemoryRegistry(t *testing.T) {
 	for _, v := range testData {
 		serviceCount := 0
 		for _, service := range v {
-			if err := m.Register(service); err != nil {
+			if err := m.Register(ctx, service); err != nil {
 				t.Errorf("Unexpected register error: %v", err)
 			}
 			serviceCount++
 			// after the service has been registered we should be able to query it
-			services, err := m.GetService(service.Name)
+			services, err := m.GetService(ctx, service.Name)
 			if err != nil {
 				t.Errorf("Unexpected error getting service %s: %v", service.Name, err)
 			}
@@ -127,7 +129,7 @@ func TestMemoryRegistry(t *testing.T) {
 		fn(k, v)
 	}
 
-	services, err := m.ListServices()
+	services, err := m.ListServices(ctx)
 	if err != nil {
 		t.Errorf("Unexpected error when listing services: %v", err)
 	}
@@ -146,7 +148,7 @@ func TestMemoryRegistry(t *testing.T) {
 	// deregister
 	for _, v := range testData {
 		for _, service := range v {
-			if err := m.Deregister(service); err != nil {
+			if err := m.Deregister(ctx, service); err != nil {
 				t.Errorf("Unexpected deregister error: %v", err)
 			}
 		}
@@ -155,7 +157,7 @@ func TestMemoryRegistry(t *testing.T) {
 	// after all the service nodes have been deregistered we should not get any results
 	for _, v := range testData {
 		for _, service := range v {
-			services, err := m.GetService(service.Name)
+			services, err := m.GetService(ctx, service.Name)
 			if err != registry.ErrNotFound {
 				t.Errorf("Expected error: %v, got: %v", registry.ErrNotFound, err)
 			}
@@ -168,10 +170,11 @@ func TestMemoryRegistry(t *testing.T) {
 
 func TestMemoryRegistryTTL(t *testing.T) {
 	m := NewRegistry()
+	ctx := context.TODO()
 
 	for _, v := range testData {
 		for _, service := range v {
-			if err := m.Register(service, registry.RegisterTTL(time.Millisecond)); err != nil {
+			if err := m.Register(ctx, service, registry.RegisterTTL(time.Millisecond)); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -180,7 +183,7 @@ func TestMemoryRegistryTTL(t *testing.T) {
 	time.Sleep(ttlPruneTime * 2)
 
 	for name := range testData {
-		svcs, err := m.GetService(name)
+		svcs, err := m.GetService(ctx, name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,10 +200,10 @@ func TestMemoryRegistryTTLConcurrent(t *testing.T) {
 	concurrency := 1000
 	waitTime := ttlPruneTime * 2
 	m := NewRegistry()
-
+	ctx := context.TODO()
 	for _, v := range testData {
 		for _, service := range v {
-			if err := m.Register(service, registry.RegisterTTL(waitTime/2)); err != nil {
+			if err := m.Register(ctx, service, registry.RegisterTTL(waitTime/2)); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -217,7 +220,7 @@ func TestMemoryRegistryTTLConcurrent(t *testing.T) {
 		go func() {
 			<-syncChan
 			for name := range testData {
-				svcs, err := m.GetService(name)
+				svcs, err := m.GetService(ctx, name)
 				if err != nil {
 					errChan <- err
 					return
@@ -247,35 +250,36 @@ func TestMemoryRegistryTTLConcurrent(t *testing.T) {
 
 func TestMemoryWildcard(t *testing.T) {
 	m := NewRegistry()
+	ctx := context.TODO()
 
 	testSrv := &registry.Service{Name: "foo", Version: "1.0.0"}
 
-	if err := m.Register(testSrv, registry.RegisterDomain("one")); err != nil {
+	if err := m.Register(ctx, testSrv, registry.RegisterDomain("one")); err != nil {
 		t.Fatalf("Register err: %v", err)
 	}
-	if err := m.Register(testSrv, registry.RegisterDomain("two")); err != nil {
+	if err := m.Register(ctx, testSrv, registry.RegisterDomain("two")); err != nil {
 		t.Fatalf("Register err: %v", err)
 	}
 
-	if recs, err := m.ListServices(registry.ListDomain("one")); err != nil {
+	if recs, err := m.ListServices(ctx, registry.ListDomain("one")); err != nil {
 		t.Errorf("List err: %v", err)
 	} else if len(recs) != 1 {
 		t.Errorf("Expected 1 record, got %v", len(recs))
 	}
 
-	if recs, err := m.ListServices(registry.ListDomain("*")); err != nil {
+	if recs, err := m.ListServices(ctx, registry.ListDomain("*")); err != nil {
 		t.Errorf("List err: %v", err)
 	} else if len(recs) != 2 {
 		t.Errorf("Expected 2 records, got %v", len(recs))
 	}
 
-	if recs, err := m.GetService(testSrv.Name, registry.GetDomain("one")); err != nil {
+	if recs, err := m.GetService(ctx, testSrv.Name, registry.GetDomain("one")); err != nil {
 		t.Errorf("Get err: %v", err)
 	} else if len(recs) != 1 {
 		t.Errorf("Expected 1 record, got %v", len(recs))
 	}
 
-	if recs, err := m.GetService(testSrv.Name, registry.GetDomain("*")); err != nil {
+	if recs, err := m.GetService(ctx, testSrv.Name, registry.GetDomain("*")); err != nil {
 		t.Errorf("Get err: %v", err)
 	} else if len(recs) != 2 {
 		t.Errorf("Expected 2 records, got %v", len(recs))

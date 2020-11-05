@@ -31,12 +31,11 @@ type record struct {
 }
 
 type memory struct {
-	options registry.Options
-
-	sync.RWMutex
+	opts registry.Options
 	// records is a KV map with domain name as the key and a services map as the value
 	records  map[string]services
 	watchers map[string]*Watcher
+	sync.RWMutex
 }
 
 // services is a KV map with service name as the key and a map of records as the value
@@ -44,15 +43,15 @@ type services map[string]map[string]*record
 
 // NewRegistry returns an initialized in-memory registry
 func NewRegistry(opts ...registry.Option) registry.Registry {
-	reg := &memory{
-		options:  registry.NewOptions(opts...),
+	r := &memory{
+		opts:     registry.NewOptions(opts...),
 		records:  make(map[string]services),
 		watchers: make(map[string]*Watcher),
 	}
 
-	go reg.ttlPrune()
+	go r.ttlPrune()
 
-	return reg
+	return r
 }
 
 func (m *memory) ttlPrune() {
@@ -68,8 +67,8 @@ func (m *memory) ttlPrune() {
 					for version, record := range versions {
 						for id, n := range record.Nodes {
 							if n.TTL != 0 && time.Since(n.LastSeen) > n.TTL {
-								if logger.V(logger.DebugLevel) {
-									logger.Debugf("Registry TTL expired for node %s of service %s", n.Id, service)
+								if m.opts.Logger.V(logger.DebugLevel) {
+									m.opts.Logger.Debug("Registry TTL expired for node %s of service %s", n.Id, service)
 								}
 								delete(m.records[domain][service][version].Nodes, id)
 							}
@@ -115,40 +114,25 @@ func (m *memory) Disconnect(ctx context.Context) error {
 
 func (m *memory) Init(opts ...registry.Option) error {
 	for _, o := range opts {
-		o(&m.options)
+		o(&m.opts)
 	}
 
 	// add services
 	m.Lock()
 	defer m.Unlock()
 
-	// get the existing services from the records
-	srvs, ok := m.records[registry.DefaultDomain]
-	if !ok {
-		srvs = make(services)
-	}
-
-	// set the services in the registry
-	m.records[registry.DefaultDomain] = srvs
 	return nil
 }
 
 func (m *memory) Options() registry.Options {
-	return m.options
+	return m.opts
 }
 
 func (m *memory) Register(ctx context.Context, s *registry.Service, opts ...registry.RegisterOption) error {
 	m.Lock()
 	defer m.Unlock()
 
-	// parse the options, fallback to the default domain
-	var options registry.RegisterOptions
-	for _, o := range opts {
-		o(&options)
-	}
-	if len(options.Domain) == 0 {
-		options.Domain = registry.DefaultDomain
-	}
+	options := registry.NewRegisterOptions(opts...)
 
 	// get the services for this domain from the registry
 	srvs, ok := m.records[options.Domain]
@@ -171,8 +155,8 @@ func (m *memory) Register(ctx context.Context, s *registry.Service, opts ...regi
 
 	if _, ok := srvs[s.Name][s.Version]; !ok {
 		srvs[s.Name][s.Version] = r
-		if logger.V(logger.DebugLevel) {
-			logger.Debugf("Registry added new service: %s, version: %s", s.Name, s.Version)
+		if m.opts.Logger.V(logger.DebugLevel) {
+			m.opts.Logger.Debug("Registry added new service: %s, version: %s", s.Name, s.Version)
 		}
 		m.records[options.Domain] = srvs
 		go m.sendEvent(&registry.Result{Action: "create", Service: s})
@@ -211,15 +195,15 @@ func (m *memory) Register(ctx context.Context, s *registry.Service, opts ...regi
 	}
 
 	if addedNodes {
-		if logger.V(logger.DebugLevel) {
-			logger.Debugf("Registry added new node to service: %s, version: %s", s.Name, s.Version)
+		if m.opts.Logger.V(logger.DebugLevel) {
+			m.opts.Logger.Debug("Registry added new node to service: %s, version: %s", s.Name, s.Version)
 		}
 		go m.sendEvent(&registry.Result{Action: "update", Service: s})
 	} else {
 		// refresh TTL and timestamp
 		for _, n := range s.Nodes {
-			if logger.V(logger.DebugLevel) {
-				logger.Debugf("Updated registration for service: %s, version: %s", s.Name, s.Version)
+			if m.opts.Logger.V(logger.DebugLevel) {
+				m.opts.Logger.Debug("Updated registration for service: %s, version: %s", s.Name, s.Version)
 			}
 			srvs[s.Name][s.Version].Nodes[n.Id].TTL = options.TTL
 			srvs[s.Name][s.Version].Nodes[n.Id].LastSeen = time.Now()
@@ -234,14 +218,7 @@ func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...re
 	m.Lock()
 	defer m.Unlock()
 
-	// parse the options, fallback to the default domain
-	var options registry.DeregisterOptions
-	for _, o := range opts {
-		o(&options)
-	}
-	if len(options.Domain) == 0 {
-		options.Domain = registry.DefaultDomain
-	}
+	options := registry.NewDeregisterOptions(opts...)
 
 	// domain is set in metadata so it can be passed to watchers
 	if s.Metadata == nil {
@@ -270,8 +247,8 @@ func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...re
 	// deregister all of the service nodes from this version
 	for _, n := range s.Nodes {
 		if _, ok := version.Nodes[n.Id]; ok {
-			if logger.V(logger.DebugLevel) {
-				logger.Debugf("Registry removed node from service: %s, version: %s", s.Name, s.Version)
+			if m.opts.Logger.V(logger.DebugLevel) {
+				m.opts.Logger.Debug("Registry removed node from service: %s, version: %s", s.Name, s.Version)
 			}
 			delete(version.Nodes, n.Id)
 		}
@@ -291,8 +268,8 @@ func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...re
 		delete(m.records[options.Domain], s.Name)
 		go m.sendEvent(&registry.Result{Action: "delete", Service: s})
 
-		if logger.V(logger.DebugLevel) {
-			logger.Debugf("Registry removed service: %s", s.Name)
+		if m.opts.Logger.V(logger.DebugLevel) {
+			m.opts.Logger.Debug("Registry removed service: %s", s.Name)
 		}
 		return nil
 	}
@@ -300,22 +277,15 @@ func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...re
 	// there are other versions of the service running, so only remove this version of it
 	delete(m.records[options.Domain][s.Name], s.Version)
 	go m.sendEvent(&registry.Result{Action: "delete", Service: s})
-	if logger.V(logger.DebugLevel) {
-		logger.Debugf("Registry removed service: %s, version: %s", s.Name, s.Version)
+	if m.opts.Logger.V(logger.DebugLevel) {
+		m.opts.Logger.Debug("Registry removed service: %s, version: %s", s.Name, s.Version)
 	}
 
 	return nil
 }
 
 func (m *memory) GetService(ctx context.Context, name string, opts ...registry.GetOption) ([]*registry.Service, error) {
-	// parse the options, fallback to the default domain
-	var options registry.GetOptions
-	for _, o := range opts {
-		o(&options)
-	}
-	if len(options.Domain) == 0 {
-		options.Domain = registry.DefaultDomain
-	}
+	options := registry.NewGetOptions(opts...)
 
 	// if it's a wildcard domain, return from all domains
 	if options.Domain == registry.WildcardDomain {
@@ -370,14 +340,7 @@ func (m *memory) GetService(ctx context.Context, name string, opts ...registry.G
 }
 
 func (m *memory) ListServices(ctx context.Context, opts ...registry.ListOption) ([]*registry.Service, error) {
-	// parse the options, fallback to the default domain
-	var options registry.ListOptions
-	for _, o := range opts {
-		o(&options)
-	}
-	if len(options.Domain) == 0 {
-		options.Domain = registry.DefaultDomain
-	}
+	options := registry.NewListOptions(opts...)
 
 	// if it's a wildcard domain, list from all domains
 	if options.Domain == registry.WildcardDomain {
@@ -420,14 +383,7 @@ func (m *memory) ListServices(ctx context.Context, opts ...registry.ListOption) 
 }
 
 func (m *memory) Watch(ctx context.Context, opts ...registry.WatchOption) (registry.Watcher, error) {
-	// parse the options, fallback to the default domain
-	var wo registry.WatchOptions
-	for _, o := range opts {
-		o(&wo)
-	}
-	if len(wo.Domain) == 0 {
-		wo.Domain = registry.DefaultDomain
-	}
+	wo := registry.NewWatchOptions(opts...)
 
 	// construct the watcher
 	w := &Watcher{
