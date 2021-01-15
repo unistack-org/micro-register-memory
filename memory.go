@@ -68,7 +68,7 @@ func (m *memory) ttlPrune() {
 						for id, n := range record.Nodes {
 							if n.TTL != 0 && time.Since(n.LastSeen) > n.TTL {
 								if m.opts.Logger.V(logger.DebugLevel) {
-									m.opts.Logger.Debugf("Registry TTL expired for node %s of service %s", n.Id, service)
+									m.opts.Logger.Debugf(m.opts.Context, "Registry TTL expired for node %s of service %s", n.Id, service)
 								}
 								delete(m.records[domain][service][version].Nodes, id)
 							}
@@ -156,7 +156,7 @@ func (m *memory) Register(ctx context.Context, s *registry.Service, opts ...regi
 	if _, ok := srvs[s.Name][s.Version]; !ok {
 		srvs[s.Name][s.Version] = r
 		if m.opts.Logger.V(logger.DebugLevel) {
-			m.opts.Logger.Debugf("Registry added new service: %s, version: %s", s.Name, s.Version)
+			m.opts.Logger.Debugf(m.opts.Context, "Registry added new service: %s, version: %s", s.Name, s.Version)
 		}
 		m.records[options.Domain] = srvs
 		go m.sendEvent(&registry.Result{Action: "create", Service: s})
@@ -196,14 +196,14 @@ func (m *memory) Register(ctx context.Context, s *registry.Service, opts ...regi
 
 	if addedNodes {
 		if m.opts.Logger.V(logger.DebugLevel) {
-			m.opts.Logger.Debugf("Registry added new node to service: %s, version: %s", s.Name, s.Version)
+			m.opts.Logger.Debugf(m.opts.Context, "Registry added new node to service: %s, version: %s", s.Name, s.Version)
 		}
 		go m.sendEvent(&registry.Result{Action: "update", Service: s})
 	} else {
 		// refresh TTL and timestamp
 		for _, n := range s.Nodes {
 			if m.opts.Logger.V(logger.DebugLevel) {
-				m.opts.Logger.Debugf("Updated registration for service: %s, version: %s", s.Name, s.Version)
+				m.opts.Logger.Debugf(m.opts.Context, "Updated registration for service: %s, version: %s", s.Name, s.Version)
 			}
 			srvs[s.Name][s.Version].Nodes[n.Id].TTL = options.TTL
 			srvs[s.Name][s.Version].Nodes[n.Id].LastSeen = time.Now()
@@ -248,7 +248,7 @@ func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...re
 	for _, n := range s.Nodes {
 		if _, ok := version.Nodes[n.Id]; ok {
 			if m.opts.Logger.V(logger.DebugLevel) {
-				m.opts.Logger.Debugf("Registry removed node from service: %s, version: %s", s.Name, s.Version)
+				m.opts.Logger.Debugf(m.opts.Context, "Registry removed node from service: %s, version: %s", s.Name, s.Version)
 			}
 			delete(version.Nodes, n.Id)
 		}
@@ -269,7 +269,7 @@ func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...re
 		go m.sendEvent(&registry.Result{Action: "delete", Service: s})
 
 		if m.opts.Logger.V(logger.DebugLevel) {
-			m.opts.Logger.Debugf("Registry removed service: %s", s.Name)
+			m.opts.Logger.Debugf(m.opts.Context, "Registry removed service: %s", s.Name)
 		}
 		return nil
 	}
@@ -278,7 +278,7 @@ func (m *memory) Deregister(ctx context.Context, s *registry.Service, opts ...re
 	delete(m.records[options.Domain][s.Name], s.Version)
 	go m.sendEvent(&registry.Result{Action: "delete", Service: s})
 	if m.opts.Logger.V(logger.DebugLevel) {
-		m.opts.Logger.Debugf("Registry removed service: %s, version: %s", s.Name, s.Version)
+		m.opts.Logger.Debugf(m.opts.Context, "Registry removed service: %s, version: %s", s.Name, s.Version)
 	}
 
 	return nil
