@@ -3,22 +3,22 @@ package memory
 import (
 	"testing"
 
-	"github.com/unistack-org/micro/v3/registry"
+	"github.com/unistack-org/micro/v3/register"
 )
 
 func TestWatcher(t *testing.T) {
 	w := &Watcher{
 		id:   "test",
-		res:  make(chan *registry.Result),
+		res:  make(chan *register.Result),
 		exit: make(chan bool),
-		wo: registry.WatchOptions{
-			Domain: registry.WildcardDomain,
+		wo: register.WatchOptions{
+			Domain: register.WildcardDomain,
 		},
 	}
 
 	go func() {
-		w.res <- &registry.Result{
-			Service: &registry.Service{Name: "foo"},
+		w.res <- &register.Result{
+			Service: &register.Service{Name: "foo"},
 		}
 	}()
 

@@ -3,17 +3,17 @@ package memory
 import (
 	"errors"
 
-	"github.com/unistack-org/micro/v3/registry"
+	"github.com/unistack-org/micro/v3/register"
 )
 
 type Watcher struct {
 	id   string
-	wo   registry.WatchOptions
-	res  chan *registry.Result
+	wo   register.WatchOptions
+	res  chan *register.Result
 	exit chan bool
 }
 
-func (m *Watcher) Next() (*registry.Result, error) {
+func (m *Watcher) Next() (*register.Result, error) {
 	for {
 		select {
 		case r := <-m.res:
@@ -30,11 +30,11 @@ func (m *Watcher) Next() (*registry.Result, error) {
 			if r.Service.Metadata != nil && len(r.Service.Metadata["domain"]) > 0 {
 				domain = r.Service.Metadata["domain"]
 			} else {
-				domain = registry.DefaultDomain
+				domain = register.DefaultDomain
 			}
 
 			// only send the event if watching the wildcard or this specific domain
-			if m.wo.Domain == registry.WildcardDomain || m.wo.Domain == domain {
+			if m.wo.Domain == register.WildcardDomain || m.wo.Domain == domain {
 				return r, nil
 			}
 		case <-m.exit:

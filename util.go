@@ -3,10 +3,10 @@ package memory
 import (
 	"time"
 
-	"github.com/unistack-org/micro/v3/registry"
+	"github.com/unistack-org/micro/v3/register"
 )
 
-func serviceToRecord(s *registry.Service, ttl time.Duration) *record {
+func serviceToRecord(s *register.Service, ttl time.Duration) *record {
 	metadata := make(map[string]string, len(s.Metadata))
 	for k, v := range s.Metadata {
 		metadata[k] = v
@@ -21,7 +21,7 @@ func serviceToRecord(s *registry.Service, ttl time.Duration) *record {
 		}
 	}
 
-	endpoints := make([]*registry.Endpoint, len(s.Endpoints))
+	endpoints := make([]*register.Endpoint, len(s.Endpoints))
 	for i, e := range s.Endpoints {
 		endpoints[i] = e
 	}
@@ -35,7 +35,7 @@ func serviceToRecord(s *registry.Service, ttl time.Duration) *record {
 	}
 }
 
-func recordToService(r *record, domain string) *registry.Service {
+func recordToService(r *record, domain string) *register.Service {
 	metadata := make(map[string]string, len(r.Metadata))
 	for k, v := range r.Metadata {
 		metadata[k] = v
@@ -44,13 +44,13 @@ func recordToService(r *record, domain string) *registry.Service {
 	// set the domain in metadata so it can be determined when a wildcard query is performed
 	metadata["domain"] = domain
 
-	endpoints := make([]*registry.Endpoint, len(r.Endpoints))
+	endpoints := make([]*register.Endpoint, len(r.Endpoints))
 	for i, e := range r.Endpoints {
-		request := new(registry.Value)
+		request := new(register.Value)
 		if e.Request != nil {
 			*request = *e.Request
 		}
-		response := new(registry.Value)
+		response := new(register.Value)
 		if e.Response != nil {
 			*response = *e.Response
 		}
@@ -60,7 +60,7 @@ func recordToService(r *record, domain string) *registry.Service {
 			metadata[k] = v
 		}
 
-		endpoints[i] = &registry.Endpoint{
+		endpoints[i] = &register.Endpoint{
 			Name:     e.Name,
 			Request:  request,
 			Response: response,
@@ -68,7 +68,7 @@ func recordToService(r *record, domain string) *registry.Service {
 		}
 	}
 
-	nodes := make([]*registry.Node, len(r.Nodes))
+	nodes := make([]*register.Node, len(r.Nodes))
 	i := 0
 	for _, n := range r.Nodes {
 		metadata := make(map[string]string, len(n.Metadata))
@@ -76,7 +76,7 @@ func recordToService(r *record, domain string) *registry.Service {
 			metadata[k] = v
 		}
 
-		nodes[i] = &registry.Node{
+		nodes[i] = &register.Node{
 			Id:       n.Id,
 			Address:  n.Address,
 			Metadata: metadata,
@@ -84,7 +84,7 @@ func recordToService(r *record, domain string) *registry.Service {
 		i++
 	}
 
-	return &registry.Service{
+	return &register.Service{
 		Name:      r.Name,
 		Version:   r.Version,
 		Metadata:  metadata,
