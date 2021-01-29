@@ -296,7 +296,7 @@ func (m *memory) LookupService(ctx context.Context, name string, opts ...registe
 		var services []*register.Service
 
 		for domain := range recs {
-			srvs, err := m.LookupService(ctx, name, append(opts, register.GetDomain(domain))...)
+			srvs, err := m.LookupService(ctx, name, append(opts, register.LookupDomain(domain))...)
 			if err == register.ErrNotFound {
 				continue
 			} else if err != nil {

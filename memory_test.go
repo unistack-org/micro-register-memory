@@ -273,14 +273,14 @@ func TestMemoryWildcard(t *testing.T) {
 		t.Errorf("Expected 2 records, got %v", len(recs))
 	}
 
-	if recs, err := m.LookupService(ctx, testSrv.Name, register.GetDomain("one")); err != nil {
-		t.Errorf("Get err: %v", err)
+	if recs, err := m.LookupService(ctx, testSrv.Name, register.LookupDomain("one")); err != nil {
+		t.Errorf("Lookup err: %v", err)
 	} else if len(recs) != 1 {
 		t.Errorf("Expected 1 record, got %v", len(recs))
 	}
 
-	if recs, err := m.LookupService(ctx, testSrv.Name, register.GetDomain("*")); err != nil {
-		t.Errorf("Get err: %v", err)
+	if recs, err := m.LookupService(ctx, testSrv.Name, register.LookupDomain("*")); err != nil {
+		t.Errorf("Lookup err: %v", err)
 	} else if len(recs) != 2 {
 		t.Errorf("Expected 2 records, got %v", len(recs))
 	}
